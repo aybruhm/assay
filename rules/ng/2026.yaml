@@ -1,0 +1,98 @@
+jurisdiction: NG
+tax_year: "2026"
+starts: 2026-01-01
+ends: 2026-12-31
+version: 1
+currency: NGN
+required_profile_fields: [country, gross_annual]
+rules:
+    - id: ng.paye.rent_relief_limit
+      kind: amount
+      value: "500000.00"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/deductions
+      checked_on: 2026-09-30
+    - id: ng.paye.rent_relief_percent
+      kind: rate
+      value: "0.2000"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/deductions
+      checked_on: 2026-09-30
+    - id: ng.paye.minimum_wage_annual
+      kind: amount
+      value: "840000.00"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.band_1_limit
+      kind: amount
+      value: "800000.00"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.band_2_limit
+      kind: amount
+      value: "3000000.00"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.band_3_limit
+      kind: amount
+      value: "12000000.00"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.band_4_limit
+      kind: amount
+      value: "25000000.00"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.band_5_limit
+      kind: amount
+      value: "50000000.00"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.rate_1
+      kind: rate
+      value: "0.0000"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.rate_2
+      kind: rate
+      value: "0.1500"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.rate_3
+      kind: rate
+      value: "0.1800"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.rate_4
+      kind: rate
+      value: "0.2100"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.rate_5
+      kind: rate
+      value: "0.2300"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.paye.rate_6
+      kind: rate
+      value: "0.2500"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income
+      checked_on: 2026-09-30
+    - id: ng.pension.employee_rate
+      kind: rate
+      value: "0.0800"
+      effective_from: 2026-01-01
+      source: https://taxsummaries.pwc.com/nigeria/individual/deductions
+      checked_on: 2026-09-30

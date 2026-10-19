@@ -1,0 +1,236 @@
+jurisdiction: GB
+tax_year: "2026-27"
+starts: 2026-04-06
+ends: 2027-04-05
+version: 1
+currency: GBP
+required_profile_fields: [country, gross_annual, scottish_taxpayer]
+rules:
+    - id: gb.income_tax.personal_allowance
+      kind: amount
+      value: "12570.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/income-tax-rates
+      checked_on: 2026-09-27
+    - id: gb.income_tax.allowance_taper_threshold
+      kind: amount
+      value: "100000.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/income-tax-rates
+      checked_on: 2026-10-19
+    - id: gb.income_tax.allowance_taper_rate
+      kind: rate
+      value: "0.5000"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/income-tax-rates
+      checked_on: 2026-10-19
+    - id: gb.income_tax.basic_rate_limit
+      kind: amount
+      value: "50270.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/income-tax-rates
+      checked_on: 2026-09-27
+    - id: gb.income_tax.higher_rate_limit
+      kind: amount
+      value: "125140.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/income-tax-rates
+      checked_on: 2026-09-27
+    - id: gb.income_tax.basic_rate
+      kind: rate
+      value: "0.2000"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/income-tax-rates
+      checked_on: 2026-09-27
+    - id: gb.income_tax.higher_rate
+      kind: rate
+      value: "0.4000"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/income-tax-rates
+      checked_on: 2026-09-27
+    - id: gb.income_tax.additional_rate
+      kind: rate
+      value: "0.4500"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/income-tax-rates
+      checked_on: 2026-09-27
+    - id: gb.ni.primary_threshold
+      kind: amount
+      value: "12570.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/national-insurance-rates-letters
+      checked_on: 2026-09-27
+    - id: gb.ni.upper_earnings_limit
+      kind: amount
+      value: "50270.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/national-insurance-rates-letters
+      checked_on: 2026-09-27
+    - id: gb.ni.main_rate
+      kind: rate
+      value: "0.0800"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/national-insurance-rates-letters
+      checked_on: 2026-10-19
+    - id: gb.ni.additional_rate
+      kind: rate
+      value: "0.0200"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/national-insurance-rates-letters
+      checked_on: 2026-09-27
+    - id: gb.ni.employer_secondary_threshold
+      kind: amount
+      value: "5000.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/guidance/rates-and-thresholds-for-employers-2026-to-2027
+      checked_on: 2026-10-19
+    - id: gb.ni.employer_rate
+      kind: rate
+      value: "0.1500"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/guidance/rates-and-thresholds-for-employers-2026-to-2027
+      checked_on: 2026-10-19
+    - id: gb.dividend.allowance
+      kind: amount
+      value: "500.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/tax-on-dividends
+      checked_on: 2026-10-19
+    - id: gb.dividend.basic_rate
+      kind: rate
+      value: "0.1075"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/tax-on-dividends
+      checked_on: 2026-10-19
+    - id: gb.dividend.higher_rate
+      kind: rate
+      value: "0.3575"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/tax-on-dividends
+      checked_on: 2026-10-19
+    - id: gb.dividend.additional_rate
+      kind: rate
+      value: "0.3935"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/tax-on-dividends
+      checked_on: 2026-10-19
+    - id: gb.corporation_tax.small_profits_rate
+      kind: rate
+      value: "0.1900"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/corporation-tax-rates
+      checked_on: 2026-10-19
+    - id: gb.corporation_tax.main_rate
+      kind: rate
+      value: "0.2500"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/corporation-tax-rates
+      checked_on: 2026-10-19
+    - id: gb.corporation_tax.lower_limit
+      kind: amount
+      value: "50000.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/corporation-tax-rates
+      checked_on: 2026-10-19
+    - id: gb.corporation_tax.upper_limit
+      kind: amount
+      value: "250000.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/corporation-tax-rates
+      checked_on: 2026-10-19
+    - id: gb.corporation_tax.marginal_relief_fraction
+      kind: rate
+      value: "0.0150"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/guidance/corporation-tax-marginal-relief
+      checked_on: 2026-10-19
+    - id: gb.capital_gains.annual_exempt_amount
+      kind: amount
+      value: "3000.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/capital-gains-tax/rates
+      checked_on: 2026-10-19
+    - id: gb.capital_gains.basic_rate
+      kind: rate
+      value: "0.1800"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/capital-gains-tax/rates
+      checked_on: 2026-10-19
+    - id: gb.capital_gains.higher_rate
+      kind: rate
+      value: "0.2400"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/capital-gains-tax/rates
+      checked_on: 2026-10-19
+    - id: gb.isa.annual_allowance
+      kind: amount
+      value: "20000.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/individual-savings-accounts
+      checked_on: 2026-10-19
+    - id: gb.isa.tax_rate
+      kind: rate
+      value: "0.0000"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/individual-savings-accounts
+      checked_on: 2026-10-19
+    - id: gb.student_loan.plan1_threshold
+      kind: amount
+      value: "26900.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+      checked_on: 2026-10-19
+    - id: gb.student_loan.plan1_rate
+      kind: rate
+      value: "0.0900"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+      checked_on: 2026-10-19
+    - id: gb.student_loan.plan2_threshold
+      kind: amount
+      value: "29385.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+      checked_on: 2026-10-19
+    - id: gb.student_loan.plan2_rate
+      kind: rate
+      value: "0.0900"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+      checked_on: 2026-10-19
+    - id: gb.student_loan.plan4_threshold
+      kind: amount
+      value: "33795.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+      checked_on: 2026-10-19
+    - id: gb.student_loan.plan4_rate
+      kind: rate
+      value: "0.0900"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+      checked_on: 2026-10-19
+    - id: gb.student_loan.plan5_threshold
+      kind: amount
+      value: "25000.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+      checked_on: 2026-10-19
+    - id: gb.student_loan.plan5_rate
+      kind: rate
+      value: "0.0900"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+      checked_on: 2026-10-19
+    - id: gb.student_loan.postgraduate_threshold
+      kind: amount
+      value: "21000.00"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+      checked_on: 2026-10-19
+    - id: gb.student_loan.postgraduate_rate
+      kind: rate
+      value: "0.0600"
+      effective_from: 2026-04-06
+      source: https://www.gov.uk/repaying-your-student-loan/what-you-pay
+      checked_on: 2026-10-19
