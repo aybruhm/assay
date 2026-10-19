@@ -1,0 +1,33 @@
+name: run-tests
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        services:
+            postgres:
+                image: postgres:16-alpine
+                env:
+                    POSTGRES_USER: planner
+                    POSTGRES_PASSWORD: planner
+                    POSTGRES_DB: planner
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U planner -d planner"
+                    --health-interval 2s
+                    --health-timeout 3s
+                    --health-retries 15
+        steps:
+            - uses: actions/checkout@v4
+            - uses: astral-sh/setup-uv@v5
+            - run: uv sync --all-groups
+            - run: uv run mypy src/planner
+            - run: uv run import-linter lint
+            - run: uv run pytest src/planner/tests -q
+              env:
+                  PLANNER_DB_URL: postgresql://planner:planner@localhost:5432/planner

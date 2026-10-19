@@ -8,12 +8,54 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "langgraph>=1.2.12",
+    "arize-phoenix-otel>=0.17.2",
+    "asyncpg==0.31.0",
+    "langchain==1.4.3",
+    "langchain-anthropic>=1.7.6",
+    "langgraph==1.2.12",
+    "langgraph-checkpoint-postgres==3.1.2",
+    "openinference-instrumentation-langchain>=0.1.79",
+    "provenance-client==0.1.0",
+    "psycopg[binary]==3.3.6",
+    "python-dotenv>=1.2.4",
+    "pyyaml==6.0.3",
 ]
 
 [project.scripts]
-planner = "planner:main"
+planner = "planner.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.19,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "import-linter==2.15",
+    "mypy==2.3.1",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "types-pyyaml==6.0.12.20260906",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+
+# Test modules stay untyped-heavy; production code is fully strict.
+[[tool.mypy.overrides]]
+module = "planner.tests.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+
+# The Provenance SDK ships no type annotations.
+[[tool.mypy.overrides]]
+module = "provenance_client.*"
+ignore_missing_imports = true
+
+# asyncpg ships no type annotations.
+[[tool.mypy.overrides]]
+module = "asyncpg.*"
+ignore_missing_imports = true

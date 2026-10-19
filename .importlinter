@@ -1,0 +1,28 @@
+[importlinter]
+root_package = planner
+
+[importlinter:contract:llm-cannot-compute]
+name = LLM nodes never import calculators
+type = forbidden
+source_modules =
+    planner.graph.nodes.llm
+forbidden_modules =
+    planner.jurisdictions.gb.calculators
+    planner.jurisdictions.ng.calculators
+
+[importlinter:contract:calculators-are-pure]
+name = Calculators never import the LLM client or the graph
+type = forbidden
+source_modules =
+    planner.jurisdictions.gb.calculators
+    planner.jurisdictions.ng.calculators
+forbidden_modules =
+    planner.agent
+    planner.graph
+
+[importlinter:contract:countries-independent]
+name = Jurisdiction packages never import each other
+type = independence
+modules =
+    planner.jurisdictions.gb
+    planner.jurisdictions.ng
