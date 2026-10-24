@@ -10,7 +10,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
 from planner.graph.runtime import compiled, config
-from planner.graph.state import PlanState, Profile
+from planner.graph.state import Citation, PlanState, Profile
 from planner.telemetry import configure_tracing
 
 MAX_QUESTIONS = 5
@@ -157,6 +157,21 @@ async def _converse(thread_id: str, first: Awaitable[dict[str, Any]]) -> dict[st
     return out
 
 
+def _figures_table(citations: list[Citation]) -> str:
+    rows = [
+        (citation.key.replace("_", " ").capitalize(), citation.shown)
+        for citation in citations
+    ]
+    label_width = max(len("Figure"), *(len(label) for label, _ in rows))
+    amount_width = max(len("Amount"), *(len(shown) for _, shown in rows))
+    lines = [
+        f"{'Figure':<{label_width}}  {'Amount':>{amount_width}}",
+        f"{'-' * label_width}  {'-' * amount_width}",
+        *(f"{label:<{label_width}}  {shown:>{amount_width}}" for label, shown in rows),
+    ]
+    return "\n".join(lines)
+
+
 def _print_result(out: dict[str, Any]) -> None:
     if fields := _missing_fields(out):
         print("Still missing: " + ", ".join(fields))
@@ -170,10 +185,8 @@ def _print_result(out: dict[str, Any]) -> None:
         return
     print(_MARKER.sub("", report.text))
     if report.citations:
-        print("\nFigures:")
-        for citation in report.citations:
-            label = citation.key.replace("_", " ")
-            print(f"  {citation.shown}  ({label})")
+        print("\nFigures:\n")
+        print(_figures_table(report.citations))
 
 
 def main(argv: list[str] | None = None) -> None:
