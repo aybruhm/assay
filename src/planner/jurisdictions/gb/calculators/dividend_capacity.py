@@ -8,7 +8,7 @@ from planner.core.types import CalcLine, CalcResult, Unsupported
 from planner.jurisdictions.gb.calculators import helpers
 from planner.rules.schema import RulePack
 
-CALCULATOR_VERSION = "1"
+CALCULATOR_VERSION = "2"
 
 
 class DividendCapacityInput(BaseModel):
@@ -102,18 +102,27 @@ def calculate(calculator_input: DividendCapacityInput, pack: RulePack) -> CalcRe
     post_tax_profit = max(profit_before_corporation_tax - corporation_tax, 0)
     available_dividend = reserves + post_tax_profit
 
+    taper_threshold = values["gb.income_tax.allowance_taper_threshold"]
+    taper_rate = values["gb.income_tax.allowance_taper_rate"]
     other_income = existing_paye_income + director_salary
-    personal_allowance = helpers.personal_allowance_for(
+    allowance_before_dividend = helpers.personal_allowance_for(
         other_income,
         personal_allowance=standard_allowance,
-        taper_threshold=values["gb.income_tax.allowance_taper_threshold"],
-        taper_rate=values["gb.income_tax.allowance_taper_rate"],
+        taper_threshold=taper_threshold,
+        taper_rate=taper_rate,
     )
-    taxable_income = max(other_income - personal_allowance, 0)
-    basic_band_end = max(basic_rate_limit - standard_allowance, 0)
-    basic_room = max(basic_band_end - taxable_income, 0)
-    basic_rate_dividend_capacity = min(
-        available_dividend, max(basic_room, dividend_allowance)
+    # Total income reaches the basic rate limit at basic_rate_limit. Unused
+    # personal allowance reduces other income first, so it still counts towards
+    # the dividend capacity. The dividend allowance is nil-rate even when the
+    # basic band is full, so it is the floor.
+    dividend_before_higher_rate = min(
+        available_dividend,
+        max(basic_rate_limit - other_income, dividend_allowance),
+    )
+    # The largest dividend that keeps total income at or below the taper
+    # threshold, so the personal allowance stays whole.
+    dividend_within_taper_threshold = min(
+        available_dividend, max(taper_threshold - other_income, 0)
     )
 
     dividend_taken = (
@@ -123,6 +132,19 @@ def calculate(calculator_input: DividendCapacityInput, pack: RulePack) -> CalcRe
     )
     if dividend_taken > available_dividend:
         raise Unsupported("dividend amount exceeds the available dividend")
+
+    # Dividends count towards the income that tapers the personal allowance.
+    # The allowance they remove raises the tax on the other income too, so
+    # that extra tax is part of what the dividend costs.
+    total_income = other_income + dividend_taken
+    personal_allowance = helpers.personal_allowance_for(
+        total_income,
+        personal_allowance=standard_allowance,
+        taper_threshold=taper_threshold,
+        taper_rate=taper_rate,
+    )
+    allowance_lost_to_dividend = allowance_before_dividend - personal_allowance
+    taxable_income = max(other_income - personal_allowance, 0)
     dividend_tax = helpers.dividend_tax(
         dividend_taken,
         other_income=other_income,
@@ -135,7 +157,6 @@ def calculate(calculator_input: DividendCapacityInput, pack: RulePack) -> CalcRe
         higher_rate=values["gb.dividend.higher_rate"],
         additional_rate=values["gb.dividend.additional_rate"],
     )
-    net_dividend = dividend_taken - dividend_tax
     remaining_reserves = available_dividend - dividend_taken
 
     existing_allowance = helpers.personal_allowance_for(
@@ -146,7 +167,7 @@ def calculate(calculator_input: DividendCapacityInput, pack: RulePack) -> CalcRe
     )
     salary_income_tax_total = helpers.income_tax(
         other_income,
-        personal_allowance=personal_allowance,
+        personal_allowance=allowance_before_dividend,
         standard_personal_allowance=standard_allowance,
         basic_rate_limit=basic_rate_limit,
         higher_rate_limit=values["gb.income_tax.higher_rate_limit"],
@@ -165,6 +186,19 @@ def calculate(calculator_input: DividendCapacityInput, pack: RulePack) -> CalcRe
         additional_rate=values["gb.income_tax.additional_rate"],
     )
     salary_income_tax = max(salary_income_tax_total - salary_income_tax_existing, 0)
+    other_income_tax_after_dividend = helpers.income_tax(
+        other_income,
+        personal_allowance=personal_allowance,
+        standard_personal_allowance=standard_allowance,
+        basic_rate_limit=basic_rate_limit,
+        higher_rate_limit=values["gb.income_tax.higher_rate_limit"],
+        basic_rate=values["gb.income_tax.basic_rate"],
+        higher_rate=values["gb.income_tax.higher_rate"],
+        additional_rate=values["gb.income_tax.additional_rate"],
+    )
+    taper_income_tax = max(other_income_tax_after_dividend - salary_income_tax_total, 0)
+    total_tax_on_dividend = dividend_tax + taper_income_tax
+    net_dividend = dividend_taken - total_tax_on_dividend
     salary_national_insurance = helpers.national_insurance(
         director_salary,
         primary_threshold=values["gb.ni.primary_threshold"],
@@ -179,7 +213,7 @@ def calculate(calculator_input: DividendCapacityInput, pack: RulePack) -> CalcRe
         "gb.income_tax.basic_rate_limit",
         "gb.income_tax.basic_rate",
     ]
-    if other_income > values["gb.income_tax.allowance_taper_threshold"]:
+    if total_income > taper_threshold:
         income_tax_rules += [
             "gb.income_tax.allowance_taper_threshold",
             "gb.income_tax.allowance_taper_rate",
@@ -220,11 +254,16 @@ def calculate(calculator_input: DividendCapacityInput, pack: RulePack) -> CalcRe
         "gb.dividend.higher_rate",
         "gb.dividend.additional_rate",
     ]
-    if other_income > values["gb.income_tax.allowance_taper_threshold"]:
+    if total_income > taper_threshold:
         dividend_rules += [
             "gb.income_tax.allowance_taper_threshold",
             "gb.income_tax.allowance_taper_rate",
         ]
+    taper_rules = [
+        "gb.income_tax.personal_allowance",
+        "gb.income_tax.allowance_taper_threshold",
+        "gb.income_tax.allowance_taper_rate",
+    ]
     all_rules = sorted(
         {
             *income_tax_rules,
@@ -232,6 +271,7 @@ def calculate(calculator_input: DividendCapacityInput, pack: RulePack) -> CalcRe
             *employer_ni_rules,
             *corporation_tax_rules,
             *dividend_rules,
+            *taper_rules,
         }
     )
 
@@ -271,8 +311,8 @@ def calculate(calculator_input: DividendCapacityInput, pack: RulePack) -> CalcRe
             CalcLine(key="distributable_reserves", amount=reserves),
             CalcLine(key="available_dividend", amount=available_dividend),
             CalcLine(
-                key="basic_rate_dividend_capacity",
-                amount=basic_rate_dividend_capacity,
+                key="dividend_before_higher_rate",
+                amount=dividend_before_higher_rate,
                 rule_ids=dividend_rules,
             ),
             CalcLine(
@@ -280,11 +320,37 @@ def calculate(calculator_input: DividendCapacityInput, pack: RulePack) -> CalcRe
                 amount=dividend_allowance,
                 rule_ids=["gb.dividend.allowance"],
             ),
+            CalcLine(
+                key="taper_threshold",
+                amount=taper_threshold,
+                rule_ids=["gb.income_tax.allowance_taper_threshold"],
+            ),
+            CalcLine(
+                key="dividend_within_taper_threshold",
+                amount=dividend_within_taper_threshold,
+                rule_ids=taper_rules,
+            ),
             CalcLine(key="dividend_taken", amount=dividend_taken),
+            CalcLine(key="total_income", amount=total_income),
+            CalcLine(
+                key="allowance_lost_to_dividend",
+                amount=allowance_lost_to_dividend,
+                rule_ids=taper_rules,
+            ),
             CalcLine(
                 key="dividend_tax",
                 amount=dividend_tax,
                 rule_ids=dividend_rules,
+            ),
+            CalcLine(
+                key="taper_income_tax",
+                amount=taper_income_tax,
+                rule_ids=sorted({*income_tax_rules, *taper_rules}),
+            ),
+            CalcLine(
+                key="total_tax_on_dividend",
+                amount=total_tax_on_dividend,
+                rule_ids=all_rules,
             ),
             CalcLine(key="net_dividend", amount=net_dividend, rule_ids=all_rules),
             CalcLine(key="remaining_reserves", amount=remaining_reserves),

@@ -179,7 +179,11 @@ def tool_catalog() -> list[dict[str, object]]:
             "description": (
                 "Compute the dividend a company can pay from profit and reserves, "
                 "the dividend tax, and the net dividend. Uses existing PAYE income "
-                "to place the dividend in the correct tax band."
+                "to place the dividend in the correct tax band. Returns "
+                "dividend_before_higher_rate, the largest dividend that avoids the "
+                "higher dividend rate, dividend_within_taper_threshold, the largest "
+                "dividend that keeps total income at or below the personal allowance "
+                "taper threshold, and the extra tax when a dividend crosses it."
             ),
             "arguments": {
                 "existing_paye_income": "string, existing salary or PAYE income",

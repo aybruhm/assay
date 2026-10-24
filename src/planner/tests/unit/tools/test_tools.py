@@ -95,7 +95,7 @@ def test_dividend_capacity_uses_explicit_arguments():
     assert isinstance(result, CalcResult)
     assert result.calculator == "gb.dividend_capacity"
     assert result.get("available_dividend") == 772_500_000
-    assert result.get("dividend_tax") == 287_740_850
+    assert result.get("dividend_tax") == 292_266_050
 
 
 def test_director_salary_defaults_to_zero_for_dividend_capacity():
