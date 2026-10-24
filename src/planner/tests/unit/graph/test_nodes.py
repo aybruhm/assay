@@ -211,6 +211,20 @@ class TestAgent:
         )
         assert out == {"failure": "agent step limit reached"}
 
+    def test_question_never_contains_an_em_dash(self, monkeypatch):
+        fake = ScriptedModel(
+            decisions=[
+                AgentDecision(
+                    action="ask",
+                    fields=["director_salary"],
+                    message="The salary the company pays you \u2014 if any",
+                )
+            ]
+        )
+        monkeypatch.setattr(agent_module, "model", lambda: fake)
+        out = agent_module.agent(_state(profile=Profile(country="GB")))
+        assert out["agent_message"] == "The salary the company pays you, if any"
+
     def test_payload_carries_the_tools_and_profile(self, monkeypatch):
         spy = SpyModel()
         monkeypatch.setattr(agent_module, "model", lambda: spy)
@@ -509,3 +523,17 @@ class TestNarrate:
         assert spy.payload is not None
         assert "rejected for" in spy.payload
         assert "£1.00 should be £2.00" in spy.payload
+
+    def test_report_never_contains_an_em_dash(self, monkeypatch):
+        class DashModel(SpyModel):
+            def narrate(self, system: str, payload: str) -> str:
+                return "Net pay is \u00a334,622.40 [r:9f2c1a3b4d5e.net_pay] \u2014 after tax."
+
+        monkeypatch.setattr(narrate_module, "model", lambda: DashModel())
+        state = _state(results=[RESULT], rule_pack=REF, validation=Validation())
+        out = narrate_module.narrate(state)
+        assert "\u2014" not in out["report"].text
+        assert out["report"].text == (
+            "Net pay is \u00a334,622.40 [r:9f2c1a3b4d5e.net_pay], after tax."
+        )
+
