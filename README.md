@@ -40,7 +40,7 @@ taking an assistant's word for it.
 | The model invents a number | Models do not calculate. They call a calculator that produces the figures |
 | The model applies the wrong year's rates | Rates and thresholds are data in YAML rule packs, each value carrying a source URL |
 | A figure cannot be checked | Every figure in the report names the result id it came from |
-| The text turns into a recommendation | The report describes figures and trade-offs. A review step for the wording is not built yet |
+| A recommendation is not grounded | The narrator recommends only amounts that appear in tool results, ties each reason to a figure or a rule source, and never names products or providers. The validator rejects any figure without a result marker |
 
 If the model cannot answer, the run returns no figures and states the reason.
 It does not guess.
@@ -83,7 +83,10 @@ flowchart TD
   with a citation marker.
 - **Validate** recomputes every displayed figure and rejects wrong numbers,
   unknown ids or uncited figures. After three attempts the run ends with no
-- **Deliver** writes the audit record. No audit record, no delivery.
+  figures.
+- **Deliver** writes the audit record. No audit record, no delivery. The
+  audit gateway can also refuse a record, which withholds the report (see
+  [Audit policy](#audit-policy)).
 
 The model can call more than one tool. For example, it can compute take-home
 pay for an existing salary and then use that salary in a dividend calculation.
@@ -183,7 +186,7 @@ Three variables have no default. A run fails when one is missing:
 | --- | --- |
 | `PLANNER_DB_URL` | PostgreSQL connection string for checkpoints |
 | `PLANNER_MODEL` | LangChain model name for the real model adapter |
-| `PROVENANCE_GATEWAY_URL` | Provenance audit gateway |
+| `PROVENANCE_GATEWAY_URL` | Provenance API base URL, including `/api` (for example `https://<PROVENANCE_HOST>/api`). The client appends `/v1/gateway/execute` |
 
 The fake adapters replace two of them. Set `PLANNER_FAKE_MODEL` instead of
 `PLANNER_MODEL` to run without an API key, and `PLANNER_FAKE_SINK` instead of
@@ -201,7 +204,7 @@ The rest are optional:
 | `PLANNER_RULES_DIR` | `rules/` in the repo | Directory the rule packs load from |
 | `PLANNER_CRASH_AT` | unset | Kill the process as the named graph node starts. Used by the resume demo |
 | `PROVENANCE_AGENT_ID` | `planner` | Agent identity sent to the audit gateway |
-| `PROVENANCE_API_KEY` | unset | API key for the audit gateway |
+| `PROVENANCE_API_KEY` | unset | API key for the audit gateway. Its scope selects the policy that judges every audit event (see [Audit policy](#audit-policy)) |
 | `PHOENIX_PROJECT_NAME` | `assay` | Phoenix project that receives the traces |
 | `PHOENIX_COLLECTOR_ENDPOINT` | `http://localhost:6006` | Phoenix collector base URL |
 | `PHOENIX_API_KEY` | unset | API key for a hosted Phoenix collector |
@@ -211,6 +214,83 @@ registers a Phoenix tracer with auto-instrumentation. The Phoenix SDK reads
 `PHOENIX_COLLECTOR_ENDPOINT` and `PHOENIX_API_KEY` itself, so this project does
 not pass them explicitly. With no endpoint set, traces go to
 `http://localhost:6006`.
+
+## Audit policy
+
+When a run is delivered, Assay sends one audit event per step to the
+[Provenance](https://github.com/aybruhm/provenance) gateway. Provenance checks
+each event against a policy before it records it. The policy Assay expects is
+`src/planner/resources/policies/assay_planner_policy.json`.
+
+### What the policy does
+
+Rules run top to bottom, and the first rule that returns a decision wins.
+
+| Event | Decision |
+| --- | --- |
+| `planner.rule_pack_loaded` | Block when the jurisdiction is not `GB` or `NG`. Otherwise record |
+| `planner.approval` | Block when `approved` is false. Otherwise record |
+| `planner.research`, `planner.calculation`, `planner.validation`, `planner.delivery` | Record |
+| Anything else | Block |
+
+### Why it matters
+
+- **A blocked event withholds the report.** The deliver step treats a refused
+  audit record like a failed one: the run ends in `fail_closed` with no
+  figures. The two conditional rules are therefore release gates, not logging
+  filters. A report built on an unsupported rule pack, or one a reviewer
+  rejected, is never shown to the user. Assay itself does not check `approved`
+  before delivering; this rule is that check.
+- **The policy decides, not Assay.** The sink sends `decision=ALLOW` with
+  every event, but the gateway ignores it and uses the policy's result. With
+  no policy assigned to the API key's scope, the gateway blocks every event,
+  so no report is delivered.
+- **Unknown events are blocked.** Listing the six event kinds by name, with a
+  final block-everything rule, stops another agent that shares the key from
+  writing into this audit trail.
+- **A blocked run still leaves a trail.** The sink sends all events of a run
+  at once. The allowed ones are recorded, and so is the blocked event with its
+  reason, which shows why the report was withheld.
+
+### Changing the policy
+
+- Add every new event kind in `src/planner/audit/events.py` to the policy as a
+  record rule. Otherwise the default rule blocks it and every delivery fails.
+- Write each check as an `on_violation` rule and place it before the record
+  rules. Provenance applies an `on_match` result even when that rule's
+  conditions fail, so a condition on an `on_match` rule gates nothing.
+- Do not use `ESCALATE`. The gateway holds an escalated event for up to 60
+  seconds waiting for a person, and anything other than approval becomes a
+  block. Delivery stalls and usually ends with no report.
+- Use only the `==`, `!=`, `in` and `not_in` operators. If an event lacks the
+  field, `>`, `>=`, `<` and `<=` raise an error in the gateway, and the report
+  is withheld with an unclear reason.
+
+### Set it up
+
+Policy management needs a signed-in Provenance user. The Provenance UI does
+these steps for you; the API calls below show what each step does.
+
+1. Create the policy. Send the contents of
+   `src/planner/resources/policies/assay_planner_policy.json` as the body of
+   `POST /api/v1/policies/`. Note the returned policy id.
+2. Assign it to Assay's tenant with
+   `POST /api/v1/policies/<POLICY_ID>/assign` and the body
+   `{"tenant_id": "<TENANT_ID>"}`. The response contains a
+   `tenant_policy_id`.
+3. Create an API key with `POST /api/v1/api_keys/` and the body
+   `{"user_id": "<USER_ID>", "scope_id": "<TENANT_POLICY_ID>"}`. The scope ties
+   the key to this policy.
+4. Set the key and gateway in `.env`:
+
+   ```sh
+   PROVENANCE_GATEWAY_URL=https://<PROVENANCE_HOST>/api
+   PROVENANCE_API_KEY=<API_KEY_FROM_STEP_3>
+   ```
+
+To check it, run a session without `PLANNER_FAKE_SINK` and open the audit log
+for the tenant in Provenance. A delivered run shows one record per event, each
+with the decision `ALLOW`.
 
 ## Checking the work
 

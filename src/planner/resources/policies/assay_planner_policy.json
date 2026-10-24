@@ -1,0 +1,68 @@
+{
+    "name": "assay_planner_audit",
+    "version": "0.1",
+    "description": "Audit trail for the Assay planner. Records the planner.* events sent when a run is delivered. Any BLOCK withholds the report: the planner's deliver step fails closed.",
+    "rules": [
+        {
+            "action": "planner.rule_pack_loaded",
+            "reason": "Rule pack jurisdiction is not supported (GB, NG). Report withheld.",
+            "conditions": [
+                {
+                    "name": "jurisdiction_supported",
+                    "field": "jurisdiction",
+                    "operator": "in",
+                    "value": ["GB", "NG"]
+                }
+            ],
+            "on_violation": "BLOCK"
+        },
+        {
+            "action": "planner.approval",
+            "reason": "Reviewer did not approve this report. Report withheld.",
+            "conditions": [
+                {
+                    "name": "reviewer_approved",
+                    "field": "approved",
+                    "operator": "==",
+                    "value": true
+                }
+            ],
+            "on_violation": "BLOCK"
+        },
+        {
+            "action": "planner.rule_pack_loaded",
+            "reason": "Record: rule pack used for the run",
+            "on_match": "ALLOW"
+        },
+        {
+            "action": "planner.research",
+            "reason": "Record: source consulted",
+            "on_match": "ALLOW"
+        },
+        {
+            "action": "planner.calculation",
+            "reason": "Record: deterministic calculation and the rules it applied",
+            "on_match": "ALLOW"
+        },
+        {
+            "action": "planner.validation",
+            "reason": "Record: validation attempt, passed or failed",
+            "on_match": "ALLOW"
+        },
+        {
+            "action": "planner.approval",
+            "reason": "Record: reviewer decision",
+            "on_match": "ALLOW"
+        },
+        {
+            "action": "planner.delivery",
+            "reason": "Record: delivered report hash and citations",
+            "on_match": "ALLOW"
+        },
+        {
+            "action": "*",
+            "reason": "Not a known planner audit event; default block",
+            "on_match": "BLOCK"
+        }
+    ]
+}
