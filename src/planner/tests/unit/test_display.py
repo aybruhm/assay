@@ -1,6 +1,6 @@
 import pytest
 
-from planner.display import display
+from planner.display import display, without_em_dashes
 
 
 @pytest.mark.parametrize(
@@ -25,3 +25,17 @@ def test_rate_is_shown_as_a_percentage():
 def test_text_is_shown_as_a_boolean():
     assert display(1, "GBP", "text") == "true"
     assert display(0, "GBP", "text") == "false"
+
+
+@pytest.mark.parametrize(
+    ("text", "cleaned"),
+    [
+        ("taxed at the higher rate \u2014 which is why", "taxed at the higher rate, which is why"),
+        ("salary\u2014if any", "salary, if any"),
+        ("no dash here", "no dash here"),
+        ("hyphen-ated and en \u2013 dash stay", "hyphen-ated and en \u2013 dash stay"),
+    ],
+)
+def test_em_dashes_become_commas(text, cleaned):
+    assert without_em_dashes(text) == cleaned
+

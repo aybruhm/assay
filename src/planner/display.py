@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 
 from planner.core import utils as fp
@@ -30,3 +31,22 @@ def display(
     if display_as == "text":
         return "true" if amount else "false"
     return SYMBOLS[currency] + fp.format_amount(amount)
+
+
+_EM_DASH = re.compile(r"\s*\u2014\s*")
+
+
+def without_em_dashes(text: str) -> str:
+    """
+    Replace every em dash in model text with a comma.
+
+    The prompts forbid em dashes. This catches any the model still writes, so
+    no report or question reaches the user with one.
+
+    Args:
+        text: Text written by the model.
+
+    Returns:
+        The text with each em dash, and the spaces around it, replaced by ", ".
+    """
+    return _EM_DASH.sub(", ", text)
