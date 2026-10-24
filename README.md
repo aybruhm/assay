@@ -165,6 +165,8 @@ The last command prints the report and the cited figures. `run` appends the
 message to the thread, so the saved conversation and profile carry forward. Use
 `resume` to continue a run that paused or crashed.
 
+Add `--stream` to `run` or `resume` to print each graph node to stderr as it finishes. The report is still printed only after validation, so progress streaming never exposes an unvalidated draft.
+
 **With a real model**, set `PLANNER_MODEL` instead of `PLANNER_FAKE_MODEL`
 (e.g. `PLANNER_MODEL=anthropic:claude-sonnet-4`).
 
