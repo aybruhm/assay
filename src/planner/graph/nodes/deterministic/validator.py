@@ -1,6 +1,7 @@
 import re
 from typing import Any, Literal
 
+from planner.compliance import recommendation_violations
 from planner.display import SYMBOLS, display
 from planner.graph.state import Citation, PlanState, Validation
 from planner.rules.loader import NoRulePack, load_ref
@@ -64,6 +65,8 @@ def validate(state: PlanState) -> dict[str, Any]:
     without_urls = URL.sub("", state.report.text)
     for match in UNMARKED.finditer(MARKED.sub("", without_urls)):
         mismatches.append(f"uncited figure: {match.group()!r}")
+
+    mismatches.extend(recommendation_violations(state.report.text))
 
     status: Literal["pending", "passed", "failed"] = (
         "failed" if mismatches else "passed"

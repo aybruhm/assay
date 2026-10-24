@@ -318,6 +318,25 @@ class TestValidator:
             for mismatch in out["validation"].mismatches
         )
 
+    def test_recommendation_language_is_rejected(self):
+        out = _validate(
+            "You should take the full dividend. "
+            "Your net pay is £34,622.40 [r:9f2c1a3b4d5e.net_pay]."
+        )
+        assert out["validation"].status == "failed"
+        assert any(
+            "recommendation language" in mismatch
+            for mismatch in out["validation"].mismatches
+        )
+
+    def test_neutral_comparison_of_options_passes(self):
+        out = _validate(
+            "Option A leaves £34,622.40 [r:9f2c1a3b4d5e.net_pay]. "
+            "Option B leaves £6,486.00 [r:9f2c1a3b4d5e.income_tax]."
+        )
+        assert out["validation"].status == "passed"
+        assert out["validation"].mismatches == []
+
     def test_duplicate_citations_are_collapsed(self):
         out = _validate(
             "Your net pay is £34,622.40 [r:9f2c1a3b4d5e.net_pay]. "
@@ -536,4 +555,3 @@ class TestNarrate:
         assert out["report"].text == (
             "Net pay is \u00a334,622.40 [r:9f2c1a3b4d5e.net_pay], after tax."
         )
-

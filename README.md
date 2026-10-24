@@ -40,7 +40,7 @@ taking an assistant's word for it.
 | The model invents a number | Models do not calculate. They call a calculator that produces the figures |
 | The model applies the wrong year's rates | Rates and thresholds are data in YAML rule packs, each value carrying a source URL |
 | A figure cannot be checked | Every figure in the report names the result id it came from |
-| A recommendation is not grounded | The narrator recommends only amounts that appear in tool results, ties each reason to a figure or a rule source, and never names products or providers. The validator rejects any figure without a result marker |
+| An option is presented as a recommendation | The narrator lists every option that the tool results support and describes each one without ranking it. The validator rejects recommendation language and any figure without a result marker |
 
 If the model cannot answer, the run returns no figures and states the reason.
 It does not guess.
@@ -60,10 +60,10 @@ flowchart TD
     agent -->|missing input| ask
     ask --> agent
     agent -->|enough results| narrate[narrate: explain the figures]
-    narrate --> validate[validate: check every figure]
+    narrate --> validate[validate: check every figure and the wording]
     narrate -->|rule pack changed| fail
     validate -->|passed| deliver[deliver: write the audit record, end]
-    validate -->|figures wrong, retry| narrate
+    validate -->|figures or wording wrong, retry| narrate
     validate -->|too many retries| fail[fail_closed: end with no figures]
     prepare -->|unsupported country or date| fail
     deliver -->|audit write failed| fail
@@ -82,8 +82,8 @@ flowchart TD
 - **Narrate** writes the answer from the tool results. Every figure is copied
   with a citation marker.
 - **Validate** recomputes every displayed figure and rejects wrong numbers,
-  unknown ids or uncited figures. After three attempts the run ends with no
-  figures.
+  unknown ids, uncited figures or recommendation language. After three attempts
+  the run ends with no figures.
 - **Deliver** writes the audit record. No audit record, no delivery. The
   audit gateway can also refuse a record, which withholds the report (see
   [Audit policy](#audit-policy)).
@@ -229,7 +229,7 @@ Rules run top to bottom, and the first rule that returns a decision wins.
 | Event | Decision |
 | --- | --- |
 | `planner.rule_pack_loaded` | Block when the jurisdiction is not `GB` or `NG`. Otherwise record |
-| `planner.approval` | Block when `approved` is false. Otherwise record |
+| `planner.approval` | Block when an approval event says `approved` is false. The event is only sent when human approval is enabled |
 | `planner.research`, `planner.calculation`, `planner.validation`, `planner.delivery` | Record |
 | Anything else | Block |
 
@@ -237,10 +237,10 @@ Rules run top to bottom, and the first rule that returns a decision wins.
 
 - **A blocked event withholds the report.** The deliver step treats a refused
   audit record like a failed one: the run ends in `fail_closed` with no
-  figures. The two conditional rules are therefore release gates, not logging
-  filters. A report built on an unsupported rule pack, or one a reviewer
-  rejected, is never shown to the user. Assay itself does not check `approved`
-  before delivering; this rule is that check.
+  figures. The jurisdiction rule is therefore a release gate, not a logging
+  filter. A report built on an unsupported rule pack is never shown to the
+  user. The approval rule applies only when an approval event is sent. The
+  default delivery path uses the validator's compliance check instead.
 - **The policy decides, not Assay.** The sink sends `decision=ALLOW` with
   every event, but the gateway ignores it and uses the policy's result. With
   no policy assigned to the API key's scope, the gateway blocks every event,
