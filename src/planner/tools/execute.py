@@ -129,7 +129,7 @@ def _flag(argument: bool | None, field: str, context: ToolContext) -> bool:
     raise ToolError(f"{field} is required")
 
 
-def _take_home(arguments: TakeHomeArgs, context: ToolContext) -> CalcResult:
+async def _take_home(arguments: TakeHomeArgs, context: ToolContext) -> CalcResult:
     gross = _amount(arguments.gross_annual, "gross_annual", context)
     if context.jurisdiction == "NG":
         ng_input = NgTakeHomeInput(gross_annual=gross)
@@ -141,7 +141,7 @@ def _take_home(arguments: TakeHomeArgs, context: ToolContext) -> CalcResult:
     raise ToolError(f"take_home is not supported for {context.jurisdiction}")
 
 
-def _pension(arguments: PensionArgs, context: ToolContext) -> CalcResult:
+async def _pension(arguments: PensionArgs, context: ToolContext) -> CalcResult:
     if context.jurisdiction != "GB":
         raise ToolError("pension is only supported for GB")
     gross = _amount(arguments.gross_annual, "gross_annual", context)
@@ -158,7 +158,7 @@ def _pension(arguments: PensionArgs, context: ToolContext) -> CalcResult:
     )
 
 
-def _director_pay(arguments: DirectorPayArgs, context: ToolContext) -> CalcResult:
+async def _director_pay(arguments: DirectorPayArgs, context: ToolContext) -> CalcResult:
     if context.jurisdiction != "GB":
         raise ToolError("director_pay is only supported for GB")
     profit = _amount(arguments.company_profit, "company_profit", context)
@@ -175,7 +175,7 @@ def _director_pay(arguments: DirectorPayArgs, context: ToolContext) -> CalcResul
     )
 
 
-def _dividend_capacity(
+async def _dividend_capacity(
     arguments: DividendCapacityArgs, context: ToolContext
 ) -> CalcResult:
     if context.jurisdiction != "GB":
@@ -210,7 +210,7 @@ def _dividend_capacity(
     )
 
 
-def _income_tax(arguments: IncomeTaxArgs, context: ToolContext) -> CalcResult:
+async def _income_tax(arguments: IncomeTaxArgs, context: ToolContext) -> CalcResult:
     if context.jurisdiction != "GB":
         raise ToolError("income_tax is only supported for GB")
     salary = _optional_amount(arguments.salary, "gross_annual", context, 0)
@@ -239,7 +239,7 @@ def _income_tax(arguments: IncomeTaxArgs, context: ToolContext) -> CalcResult:
     )
 
 
-def _student_loan(arguments: StudentLoanArgs, context: ToolContext) -> CalcResult:
+async def _student_loan(arguments: StudentLoanArgs, context: ToolContext) -> CalcResult:
     if context.jurisdiction != "GB":
         raise ToolError("student_loan is only supported for GB")
     gross = _amount(arguments.gross_annual, "gross_annual", context)
@@ -265,7 +265,7 @@ def _student_loan(arguments: StudentLoanArgs, context: ToolContext) -> CalcResul
     )
 
 
-def _lookup_rule(arguments: LookupRuleArgs, context: ToolContext) -> CalcResult:
+async def _lookup_rule(arguments: LookupRuleArgs, context: ToolContext) -> CalcResult:
     rule = next(
         (rule for rule in context.pack.rules if rule.id == arguments.rule_id), None
     )
@@ -315,7 +315,7 @@ def _research_id(kind: str, url: str, query: str | None) -> str:
     return hashlib.sha256(blob.encode()).hexdigest()[:12]
 
 
-def _search_trusted_sources(
+async def _search_trusted_sources(
     arguments: SearchSourcesArgs, context: ToolContext
 ) -> list[ResearchResult]:
     if context.research is None:
@@ -324,7 +324,7 @@ def _search_trusted_sources(
     if not 1 <= max_results <= 10:
         raise ToolError("max_results must be between 1 and 10")
     try:
-        hits = context.research.search(arguments.query, max_results)
+        hits = await context.research.search(arguments.query, max_results)
     except ResearchError as exc:
         raise ToolError(exc.reason) from exc
     fetched_at = datetime.now(UTC)
@@ -343,7 +343,7 @@ def _search_trusted_sources(
     ]
 
 
-def _fetch_source(
+async def _fetch_source(
     arguments: FetchSourceArgs, context: ToolContext
 ) -> list[ResearchResult]:
     if context.research is None:
@@ -351,7 +351,7 @@ def _fetch_source(
     if not is_allowed_url(arguments.url):
         raise ToolError(f"not a trusted source: {arguments.url}")
     try:
-        page = context.research.fetch(arguments.url)
+        page = await context.research.fetch(arguments.url)
     except ResearchError as exc:
         raise ToolError(exc.reason) from exc
     return [
@@ -366,7 +366,9 @@ def _fetch_source(
     ]
 
 
-def _isa_vs_general(arguments: IsaVsGeneralArgs, context: ToolContext) -> CalcResult:
+async def _isa_vs_general(
+    arguments: IsaVsGeneralArgs, context: ToolContext
+) -> CalcResult:
     if context.jurisdiction != "GB":
         raise ToolError("isa_vs_general is only supported for GB")
     amount = _amount(arguments.savings_amount, "savings_amount", context)
@@ -439,7 +441,7 @@ TOOLS: dict[str, ToolSpec] = {
 }
 
 
-def execute_tool(call: ToolCall, context: ToolContext) -> ToolOutcome:
+async def execute_tool(call: ToolCall, context: ToolContext) -> ToolOutcome:
     """
     Validate a tool call and run its calculator.
 
@@ -461,4 +463,4 @@ def execute_tool(call: ToolCall, context: ToolContext) -> ToolOutcome:
         arguments = spec.args_model.model_validate(call.arguments)
     except ValidationError as exc:
         raise ToolError(f"invalid arguments for {call.name}: {exc}") from exc
-    return cast(ToolOutcome, spec.handler(arguments, context))
+    return cast(ToolOutcome, await spec.handler(arguments, context))

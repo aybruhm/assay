@@ -52,17 +52,17 @@ def _delivered_state() -> PlanState:
     )
 
 
-def test_deliver_records_audit(monkeypatch):
+async def test_deliver_records_audit(monkeypatch):
     recorded = InMemorySink()
     monkeypatch.setattr(finish, "sink", lambda: recorded)
-    out = finish.deliver(_delivered_state(), CONFIG)  # type: ignore[arg-type]
+    out = await finish.deliver(_delivered_state(), CONFIG)  # type: ignore[arg-type]
     assert out == {}
     assert [key for events, key in recorded.batches] == ["t-1:delivery"]
     kinds = [event.kind for events, _ in recorded.batches for event in events]
     assert kinds == ["rule_pack_loaded", "calculation", "validation", "delivery"]
 
 
-def test_audit_failure_blocks_delivery(monkeypatch):
+async def test_audit_failure_blocks_delivery(monkeypatch):
     monkeypatch.setattr(finish, "sink", lambda: InMemorySink(fail=True))
-    out = finish.deliver(_delivered_state(), CONFIG)  # type: ignore[arg-type]
+    out = await finish.deliver(_delivered_state(), CONFIG)  # type: ignore[arg-type]
     assert out == {"failure": "audit write failed: injected failure"}

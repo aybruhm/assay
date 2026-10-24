@@ -1,7 +1,7 @@
 import os
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote_plus
-from urllib.request import Request, urlopen
+
+import httpx
 
 from planner.research.allowlist import is_allowed_url
 from planner.research.html import (
@@ -24,33 +24,44 @@ class HttpResearch:
             "Assay/0.1 (trusted source research)",
         )
 
-    def _get(self, url: str, *, require_allowed: bool) -> tuple[str, str]:
+    async def _get(self, url: str, *, require_allowed: bool) -> tuple[str, str]:
         if require_allowed and not is_allowed_url(url):
             raise ResearchError(f"not a trusted source: {url}")
-        request = Request(url, headers={"User-Agent": self._user_agent})
         try:
-            with urlopen(request, timeout=self._timeout) as response:
-                final_url = response.geturl()
+            async with (
+                httpx.AsyncClient(
+                    timeout=self._timeout,
+                    headers={"User-Agent": self._user_agent},
+                    follow_redirects=True,
+                ) as client,
+                client.stream("GET", url) as response,
+            ):
+                final_url = str(response.url)
                 if require_allowed and not is_allowed_url(final_url):
                     raise ResearchError(
                         f"redirected to a non-trusted source: {final_url}"
                     )
-                payload = response.read(_MAX_BYTES)
-                charset = response.headers.get_content_charset() or "utf-8"
-        except HTTPError as exc:
-            raise ResearchError(f"HTTP {exc.code} for {url}") from exc
-        except (URLError, TimeoutError) as exc:
+                response.raise_for_status()
+                payload = bytearray()
+                async for chunk in response.aiter_bytes():
+                    payload.extend(chunk)
+                    if len(payload) >= _MAX_BYTES:
+                        break
+                charset = response.encoding or "utf-8"
+        except httpx.HTTPStatusError as exc:
+            raise ResearchError(f"HTTP {exc.response.status_code} for {url}") from exc
+        except (httpx.RequestError, TimeoutError) as exc:
             raise ResearchError(f"could not reach {url}: {exc}") from exc
-        return final_url, payload.decode(charset, errors="replace")
+        return final_url, bytes(payload[:_MAX_BYTES]).decode(charset, errors="replace")
 
-    def search(self, query: str, max_results: int) -> list[SearchHit]:
+    async def search(self, query: str, max_results: int) -> list[SearchHit]:
         url = _SEARCH_URL.format(query=quote_plus(query))
-        _, html_text = self._get(url, require_allowed=False)
+        _, html_text = await self._get(url, require_allowed=False)
         hits = parse_search_results(html_text, max_results)
         return [hit for hit in hits if is_allowed_url(hit.url)]
 
-    def fetch(self, url: str) -> FetchedPage:
-        final_url, html_text = self._get(url, require_allowed=True)
+    async def fetch(self, url: str) -> FetchedPage:
+        final_url, html_text = await self._get(url, require_allowed=True)
         return FetchedPage(
             title=extract_title(html_text) or final_url,
             url=final_url,

@@ -72,8 +72,9 @@ def _merge(current: Profile, new: ProfileExtraction) -> Profile:
     return current.model_copy(update=updates)
 
 
-def intake(state: PlanState) -> dict[str, Any]:
-    profile = _merge(state.profile, model().extract_profile(state.messages))
+async def intake(state: PlanState) -> dict[str, Any]:
+    extracted = await model().extract_profile(state.messages)
+    profile = _merge(state.profile, extracted)
     missing = [] if profile.country else ["country"]
     return {
         "profile": profile,

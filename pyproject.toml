@@ -4,12 +4,13 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "Abram", email = "55067204+aybruhm@users.noreply.github.com" }
+    { name = "Abram", email = "55067204+aybruhm@users.noreply.github.com" },
 ]
 requires-python = ">=3.14"
 dependencies = [
     "arize-phoenix-otel>=0.17.2",
     "asyncpg==0.31.0",
+    "httpx==0.28.1",
     "langchain==1.4.3",
     "langchain-anthropic>=1.7.6",
     "langgraph==1.2.12",

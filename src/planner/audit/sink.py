@@ -16,7 +16,9 @@ class AuditError(Exception):
 class AuditSink(Protocol):
     """Driven port: send one run's events as a batch keyed by idempotency key."""
 
-    def record_batch(self, events: list[AuditEvent], idempotency_key: str) -> None: ...
+    async def record_batch(
+        self, events: list[AuditEvent], idempotency_key: str
+    ) -> None: ...
 
 
 class Gateway(Protocol):
@@ -42,28 +44,26 @@ class ProvenanceSink:
     def __init__(self, gateway: Gateway) -> None:
         self._gateway = gateway
 
-    def record_batch(self, events: list[AuditEvent], idempotency_key: str) -> None:
+    async def record_batch(
+        self, events: list[AuditEvent], idempotency_key: str
+    ) -> None:
         try:
-
-            async def record_all() -> None:
-                await asyncio.gather(
-                    *(
-                        asyncio.to_thread(
-                            self._gateway.execute,
-                            f"planner.{event.kind}",
-                            {
-                                "thread_id": event.thread_id,
-                                "at": event.at.isoformat(),
-                                **event.data,
-                            },
-                            session_id=idempotency_key,
-                            decision=Decision.ALLOW,
-                        )
-                        for event in events
+            await asyncio.gather(
+                *(
+                    asyncio.to_thread(
+                        self._gateway.execute,
+                        f"planner.{event.kind}",
+                        {
+                            "thread_id": event.thread_id,
+                            "at": event.at.isoformat(),
+                            **event.data,
+                        },
+                        session_id=idempotency_key,
+                        decision=Decision.ALLOW,
                     )
+                    for event in events
                 )
-
-            asyncio.run(record_all())
+            )
         except (GatewayError, PolicyBlockedError) as exc:
             raise AuditError(str(exc)) from exc
 
@@ -75,7 +75,9 @@ class InMemorySink:
         self.fail = fail
         self.batches: list[tuple[list[AuditEvent], str]] = []
 
-    def record_batch(self, events: list[AuditEvent], idempotency_key: str) -> None:
+    async def record_batch(
+        self, events: list[AuditEvent], idempotency_key: str
+    ) -> None:
         if self.fail:
             raise AuditError("injected failure")
         self.batches.append((events, idempotency_key))

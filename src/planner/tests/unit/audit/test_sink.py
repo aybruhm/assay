@@ -17,16 +17,16 @@ def _event(kind: Kind = "calculation") -> AuditEvent:
 
 
 class TestInMemorySink:
-    def test_records_batches(self):
+    async def test_records_batches(self):
         audit_sink = InMemorySink()
         events = [_event()]
-        audit_sink.record_batch(events, "t-1:delivery")
+        await audit_sink.record_batch(events, "t-1:delivery")
         assert audit_sink.batches == [(events, "t-1:delivery")]
 
-    def test_injected_failure_raises(self):
+    async def test_injected_failure_raises(self):
         audit_sink = InMemorySink(fail=True)
         with pytest.raises(AuditError):
-            audit_sink.record_batch([_event()], "t-1:delivery")
+            await audit_sink.record_batch([_event()], "t-1:delivery")
 
 
 class FakeGateway:
@@ -53,10 +53,10 @@ class FakeGateway:
 
 
 class TestProvenanceSink:
-    def test_each_event_is_one_gateway_execute(self):
+    async def test_each_event_is_one_gateway_execute(self):
         gateway = FakeGateway()
         audit_sink = ProvenanceSink(gateway)
-        audit_sink.record_batch(
+        await audit_sink.record_batch(
             [_event("calculation"), _event("delivery")], "t-1:delivery"
         )
         assert [call[0] for call in gateway.calls] == [
@@ -69,7 +69,7 @@ class TestProvenanceSink:
         assert parameters["result_id"] == "9f2c1a3b4d5e"
         assert "at" in parameters and "thread_id" in parameters
 
-    def test_gateway_outage_becomes_audit_error(self):
+    async def test_gateway_outage_becomes_audit_error(self):
         from provenance_client.services import GatewayError
 
         gateway = FakeGateway(
@@ -77,9 +77,9 @@ class TestProvenanceSink:
         )
         audit_sink = ProvenanceSink(gateway)
         with pytest.raises(AuditError):
-            audit_sink.record_batch([_event()], "t-1:delivery")
+            await audit_sink.record_batch([_event()], "t-1:delivery")
 
-    def test_blocked_decision_becomes_audit_error(self):
+    async def test_blocked_decision_becomes_audit_error(self):
         from provenance_client.services import PolicyBlockedError
 
         gateway = FakeGateway(
@@ -87,7 +87,7 @@ class TestProvenanceSink:
         )
         audit_sink = ProvenanceSink(gateway)
         with pytest.raises(AuditError):
-            audit_sink.record_batch([_event()], "t-1:delivery")
+            await audit_sink.record_batch([_event()], "t-1:delivery")
 
 
 def test_factory_requires_configuration(monkeypatch):

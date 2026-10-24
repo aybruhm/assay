@@ -24,7 +24,7 @@ def _gb_context(
     )
 
 
-def test_catalog_lists_the_supported_tools():
+async def test_catalog_lists_the_supported_tools():
     names = {tool["name"] for tool in tool_catalog()}
     assert names == {
         "take_home",
@@ -40,8 +40,8 @@ def test_catalog_lists_the_supported_tools():
     }
 
 
-def test_take_home_uses_explicit_arguments():
-    result = execute_tool(
+async def test_take_home_uses_explicit_arguments():
+    result = await execute_tool(
         ToolCall(
             name="take_home",
             arguments={"gross_annual": "45,000", "scottish_taxpayer": False},
@@ -53,8 +53,8 @@ def test_take_home_uses_explicit_arguments():
     assert result.get("net_pay") == 359_196_000
 
 
-def test_take_home_falls_back_to_profile_defaults():
-    result = execute_tool(
+async def test_take_home_falls_back_to_profile_defaults():
+    result = await execute_tool(
         ToolCall(name="take_home", arguments={}),
         _gb_context(
             {
@@ -67,20 +67,20 @@ def test_take_home_falls_back_to_profile_defaults():
     assert result.get("net_pay") == 359_196_000
 
 
-def test_take_home_dispatches_to_nigeria():
+async def test_take_home_dispatches_to_nigeria():
     context = ToolContext(
         jurisdiction="NG",
         pack=load_pack("NG", "2026"),
         defaults={"gross_annual": "25,000,000"},
     )
-    result = execute_tool(ToolCall(name="take_home", arguments={}), context)
+    result = await execute_tool(ToolCall(name="take_home", arguments={}), context)
     assert isinstance(result, CalcResult)
     assert result.calculator == "ng.take_home"
     assert result.get("net_pay") == 187_400_000_000
 
 
-def test_dividend_capacity_uses_explicit_arguments():
-    result = execute_tool(
+async def test_dividend_capacity_uses_explicit_arguments():
+    result = await execute_tool(
         ToolCall(
             name="dividend_capacity",
             arguments={
@@ -98,8 +98,8 @@ def test_dividend_capacity_uses_explicit_arguments():
     assert result.get("dividend_tax") == 292_266_050
 
 
-def test_director_salary_defaults_to_zero_for_dividend_capacity():
-    result = execute_tool(
+async def test_director_salary_defaults_to_zero_for_dividend_capacity():
+    result = await execute_tool(
         ToolCall(
             name="dividend_capacity",
             arguments={
@@ -115,21 +115,21 @@ def test_director_salary_defaults_to_zero_for_dividend_capacity():
     assert result.get("director_salary") == 0
 
 
-def test_missing_required_argument_raises_a_tool_error():
+async def test_missing_required_argument_raises_a_tool_error():
     with pytest.raises(ToolError) as excinfo:
-        execute_tool(ToolCall(name="take_home", arguments={}), _gb_context())
+        await execute_tool(ToolCall(name="take_home", arguments={}), _gb_context())
     assert "gross_annual is required" in excinfo.value.reason
 
 
-def test_unknown_tool_raises_a_tool_error():
+async def test_unknown_tool_raises_a_tool_error():
     with pytest.raises(ToolError) as excinfo:
-        execute_tool(ToolCall(name="nope", arguments={}), _gb_context())
+        await execute_tool(ToolCall(name="nope", arguments={}), _gb_context())
     assert "unknown tool" in excinfo.value.reason
 
 
-def test_invalid_rate_raises_a_tool_error():
+async def test_invalid_rate_raises_a_tool_error():
     with pytest.raises(ToolError) as excinfo:
-        execute_tool(
+        await execute_tool(
             ToolCall(
                 name="pension",
                 arguments={
@@ -143,8 +143,8 @@ def test_invalid_rate_raises_a_tool_error():
     assert "pension_rate is not a rate" in excinfo.value.reason
 
 
-def test_income_tax_combines_salary_and_pension_income():
-    result = execute_tool(
+async def test_income_tax_combines_salary_and_pension_income():
+    result = await execute_tool(
         ToolCall(
             name="income_tax",
             arguments={
@@ -163,8 +163,8 @@ def test_income_tax_combines_salary_and_pension_income():
     assert result.get("net_income") == 429_736_000
 
 
-def test_income_tax_applies_the_personal_allowance_taper():
-    result = execute_tool(
+async def test_income_tax_applies_the_personal_allowance_taper():
+    result = await execute_tool(
         ToolCall(
             name="income_tax",
             arguments={
@@ -179,8 +179,8 @@ def test_income_tax_applies_the_personal_allowance_taper():
     assert result.get("taxable_income") == 1_174_300_000
 
 
-def test_student_loan_plan_two():
-    result = execute_tool(
+async def test_student_loan_plan_two():
+    result = await execute_tool(
         ToolCall(
             name="student_loan",
             arguments={"gross_annual": "45,000", "plan": "plan2"},
@@ -194,8 +194,8 @@ def test_student_loan_plan_two():
     assert result.get("student_loan_repayment") == 14_053_500
 
 
-def test_lookup_rule_returns_a_rate_and_source():
-    result = execute_tool(
+async def test_lookup_rule_returns_a_rate_and_source():
+    result = await execute_tool(
         ToolCall(name="lookup_rule", arguments={"rule_id": "gb.income_tax.basic_rate"}),
         _gb_context(),
     )
@@ -206,7 +206,7 @@ def test_lookup_rule_returns_a_rate_and_source():
     assert line.source == "https://www.gov.uk/income-tax-rates"
 
 
-def test_search_trusted_sources_returns_only_allowlisted_hits():
+async def test_search_trusted_sources_returns_only_allowlisted_hits():
     fake = FakeResearch(
         hits=[
             SearchHit(
@@ -221,7 +221,7 @@ def test_search_trusted_sources_returns_only_allowlisted_hits():
             ),
         ]
     )
-    result = execute_tool(
+    result = await execute_tool(
         ToolCall(
             name="search_trusted_sources",
             arguments={"query": "income tax rates", "max_results": 5},
@@ -234,7 +234,7 @@ def test_search_trusted_sources_returns_only_allowlisted_hits():
     assert fake.queries == [("income tax rates", 5)]
 
 
-def test_fetch_source_returns_page_text():
+async def test_fetch_source_returns_page_text():
     fetched_at = datetime(2026, 10, 19, tzinfo=UTC)
     fake = FakeResearch(
         pages={
@@ -246,7 +246,7 @@ def test_fetch_source_returns_page_text():
             )
         }
     )
-    result = execute_tool(
+    result = await execute_tool(
         ToolCall(
             name="fetch_source",
             arguments={"url": "https://www.gov.uk/income-tax-rates"},
@@ -259,9 +259,9 @@ def test_fetch_source_returns_page_text():
     assert fake.fetches == ["https://www.gov.uk/income-tax-rates"]
 
 
-def test_fetch_source_rejects_a_non_trusted_url():
+async def test_fetch_source_rejects_a_non_trusted_url():
     with pytest.raises(ToolError) as excinfo:
-        execute_tool(
+        await execute_tool(
             ToolCall(
                 name="fetch_source",
                 arguments={"url": "https://example.com/tax"},
@@ -271,12 +271,12 @@ def test_fetch_source_rejects_a_non_trusted_url():
     assert "not a trusted source" in excinfo.value.reason
 
 
-def test_gb_only_tool_fails_closed_for_nigeria():
+async def test_gb_only_tool_fails_closed_for_nigeria():
     context = ToolContext(
         jurisdiction="NG",
         pack=load_pack("NG", "2026"),
         defaults={"gross_annual": "25,000,000"},
     )
     with pytest.raises(ToolError) as excinfo:
-        execute_tool(ToolCall(name="pension", arguments={}), context)
+        await execute_tool(ToolCall(name="pension", arguments={}), context)
     assert "only supported for GB" in excinfo.value.reason

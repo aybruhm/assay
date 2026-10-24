@@ -52,22 +52,26 @@ class LangChainModel(ModelPort):
     def __init__(self, model: str) -> None:
         self._chat = init_chat_model(model)
 
-    def extract_profile(self, messages: list[AnyMessage]) -> ProfileExtraction:
+    async def extract_profile(self, messages: list[AnyMessage]) -> ProfileExtraction:
         structured = self._chat.with_structured_output(ProfileExtraction)
-        result = structured.invoke([SystemMessage(INTAKE_PROMPT), *messages])
+        result = await structured.ainvoke([SystemMessage(INTAKE_PROMPT), *messages])
         assert isinstance(result, ProfileExtraction), (
             f"Expected ProfileExtraction, got {type(result).__name__}"
         )
         return result
 
-    def decide(self, system: str, payload: str) -> AgentDecision:
+    async def decide(self, system: str, payload: str) -> AgentDecision:
         structured = self._chat.with_structured_output(AgentDecision)
-        result = structured.invoke([SystemMessage(system), HumanMessage(payload)])
+        result = await structured.ainvoke(
+            [SystemMessage(system), HumanMessage(payload)]
+        )
         assert isinstance(result, AgentDecision), (
             f"Expected AgentDecision, got {type(result).__name__}"
         )
         return result
 
-    def narrate(self, system: str, payload: str) -> str:
-        response = self._chat.invoke([SystemMessage(system), HumanMessage(payload)])
+    async def narrate(self, system: str, payload: str) -> str:
+        response = await self._chat.ainvoke(
+            [SystemMessage(system), HumanMessage(payload)]
+        )
         return _text_from_content(response.content)

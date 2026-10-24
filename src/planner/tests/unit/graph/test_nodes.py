@@ -26,7 +26,7 @@ def _state(**overrides: object) -> PlanState:
 
 
 class TestIntake:
-    def test_country_is_the_only_required_field(self, monkeypatch):
+    async def test_country_is_the_only_required_field(self, monkeypatch):
         fake = ScriptedModel(
             extractions=[
                 ProfileExtraction(
@@ -37,22 +37,22 @@ class TestIntake:
             ]
         )
         monkeypatch.setattr(intake_module, "model", lambda: fake)
-        out = intake_module.intake(
+        out = await intake_module.intake(
             _state(profile=Profile(planning_date=date(2026, 10, 1)))
         )
         assert out["profile"].country == "GB"
         assert out["profile"].gross_annual == 450_000_000
         assert out["missing"] == []
 
-    def test_missing_country_is_listed(self, monkeypatch):
+    async def test_missing_country_is_listed(self, monkeypatch):
         fake = ScriptedModel(extractions=[ProfileExtraction()])
         monkeypatch.setattr(intake_module, "model", lambda: fake)
-        out = intake_module.intake(
+        out = await intake_module.intake(
             _state(profile=Profile(planning_date=date(2026, 10, 1)))
         )
         assert out["missing"] == ["country"]
 
-    def test_fact_fields_are_parsed(self, monkeypatch):
+    async def test_fact_fields_are_parsed(self, monkeypatch):
         fake = ScriptedModel(
             extractions=[
                 ProfileExtraction(
@@ -72,7 +72,7 @@ class TestIntake:
             ]
         )
         monkeypatch.setattr(intake_module, "model", lambda: fake)
-        out = intake_module.intake(
+        out = await intake_module.intake(
             _state(profile=Profile(planning_date=date(2026, 10, 1)))
         )
         profile = out["profile"]
@@ -88,10 +88,10 @@ class TestIntake:
         assert profile.annual_growth_rate == 500
         assert profile.investment_years == 10
 
-    def test_existing_profile_fields_are_not_overwritten(self, monkeypatch):
+    async def test_existing_profile_fields_are_not_overwritten(self, monkeypatch):
         fake = ScriptedModel(extractions=[ProfileExtraction(country="GB")])
         monkeypatch.setattr(intake_module, "model", lambda: fake)
-        out = intake_module.intake(
+        out = await intake_module.intake(
             _state(
                 profile=Profile(
                     planning_date=date(2026, 10, 1),
@@ -103,10 +103,10 @@ class TestIntake:
         assert out["profile"].gross_annual == 450_000_000
         assert out["profile"].scottish_taxpayer is False
 
-    def test_a_new_turn_clears_the_previous_tool_results(self, monkeypatch):
+    async def test_a_new_turn_clears_the_previous_tool_results(self, monkeypatch):
         fake = ScriptedModel(extractions=[ProfileExtraction(country="GB")])
         monkeypatch.setattr(intake_module, "model", lambda: fake)
-        out = intake_module.intake(
+        out = await intake_module.intake(
             _state(
                 profile=Profile(planning_date=date(2026, 10, 1)),
                 results=[CalcResult("abc", "old", "1", {}, [CalcLine("x", 1)])],
@@ -129,29 +129,29 @@ class TestIntake:
 
 
 class TestPrepare:
-    def test_gb_routes_to_the_rule_pack(self):
+    async def test_gb_routes_to_the_rule_pack(self):
         out = prepare(
             _state(profile=Profile(country="GB", planning_date=date(2026, 10, 1)))
         )
         assert out == {"jurisdiction": "GB", "rule_pack": REF}
 
-    def test_ng_routes_to_the_calendar_year_pack(self):
+    async def test_ng_routes_to_the_calendar_year_pack(self):
         out = prepare(
             _state(profile=Profile(country="NG", planning_date=date(2026, 7, 15)))
         )
         assert out == {"jurisdiction": "NG", "rule_pack": NG_REF}
 
-    def test_unsupported_country_fails_closed(self):
+    async def test_unsupported_country_fails_closed(self):
         out = prepare(
             _state(profile=Profile(country="FR", planning_date=date(2026, 10, 1)))
         )
         assert out == {"failure": "country not supported: FR"}
 
-    def test_missing_planning_date_fails_closed(self):
+    async def test_missing_planning_date_fails_closed(self):
         out = prepare(_state(profile=Profile(country="GB")))
         assert out == {"failure": "planning date missing; the caller must set it"}
 
-    def test_no_pack_for_date_fails_closed(self):
+    async def test_no_pack_for_date_fails_closed(self):
         out = prepare(
             _state(profile=Profile(country="GB", planning_date=date(2027, 6, 1)))
         )
@@ -159,7 +159,7 @@ class TestPrepare:
 
 
 class TestAgent:
-    def test_ask_sets_the_question(self, monkeypatch):
+    async def test_ask_sets_the_question(self, monkeypatch):
         fake = ScriptedModel(
             decisions=[
                 AgentDecision(
@@ -170,13 +170,13 @@ class TestAgent:
             ]
         )
         monkeypatch.setattr(agent_module, "model", lambda: fake)
-        out = agent_module.agent(_state(profile=Profile(country="GB")))
+        out = await agent_module.agent(_state(profile=Profile(country="GB")))
         assert out["next_action"] == "ask"
         assert out["missing"] == ["company_profit"]
         assert out["agent_message"] == "What is the company profit?"
         assert out["agent_steps"] == 1
 
-    def test_call_tools_sets_the_pending_calls(self, monkeypatch):
+    async def test_call_tools_sets_the_pending_calls(self, monkeypatch):
         fake = ScriptedModel(
             decisions=[
                 AgentDecision(
@@ -188,30 +188,30 @@ class TestAgent:
             ]
         )
         monkeypatch.setattr(agent_module, "model", lambda: fake)
-        out = agent_module.agent(_state(profile=Profile(country="GB")))
+        out = await agent_module.agent(_state(profile=Profile(country="GB")))
         assert out["next_action"] == "tools"
         assert out["pending_calls"] == [
             ToolCall(name="take_home", arguments={"gross_annual": "45,000"})
         ]
 
-    def test_respond_ends_the_tool_loop(self, monkeypatch):
+    async def test_respond_ends_the_tool_loop(self, monkeypatch):
         fake = ScriptedModel(decisions=[AgentDecision(action="respond")])
         monkeypatch.setattr(agent_module, "model", lambda: fake)
-        out = agent_module.agent(_state(profile=Profile(country="GB")))
+        out = await agent_module.agent(_state(profile=Profile(country="GB")))
         assert out["next_action"] == "respond"
         assert out["pending_calls"] == []
 
-    def test_step_limit_fails_closed(self, monkeypatch):
+    async def test_step_limit_fails_closed(self, monkeypatch):
         fake = ScriptedModel()
         monkeypatch.setattr(agent_module, "model", lambda: fake)
-        out = agent_module.agent(
+        out = await agent_module.agent(
             _state(
                 profile=Profile(country="GB"), agent_steps=agent_module.MAX_AGENT_STEPS
             )
         )
         assert out == {"failure": "agent step limit reached"}
 
-    def test_question_never_contains_an_em_dash(self, monkeypatch):
+    async def test_question_never_contains_an_em_dash(self, monkeypatch):
         fake = ScriptedModel(
             decisions=[
                 AgentDecision(
@@ -222,13 +222,13 @@ class TestAgent:
             ]
         )
         monkeypatch.setattr(agent_module, "model", lambda: fake)
-        out = agent_module.agent(_state(profile=Profile(country="GB")))
+        out = await agent_module.agent(_state(profile=Profile(country="GB")))
         assert out["agent_message"] == "The salary the company pays you, if any"
 
-    def test_payload_carries_the_tools_and_profile(self, monkeypatch):
+    async def test_payload_carries_the_tools_and_profile(self, monkeypatch):
         spy = SpyModel()
         monkeypatch.setattr(agent_module, "model", lambda: spy)
-        agent_module.agent(
+        await agent_module.agent(
             _state(
                 profile=Profile(
                     country="GB",
@@ -274,7 +274,7 @@ def _validate(text: str, validation: Validation | None = None) -> ValidateOut:
 
 
 class TestValidator:
-    def test_correct_report_passes(self):
+    async def test_correct_report_passes(self):
         out = _validate(
             "Your net pay is £34,622.40 [r:9f2c1a3b4d5e.net_pay]. "
             "You pay £6,486.00 [r:9f2c1a3b4d5e.income_tax] in income tax."
@@ -289,7 +289,7 @@ class TestValidator:
         assert ("9f2c1a3b4d5e", "net_pay", "£34,622.40") in cited
         assert ("9f2c1a3b4d5e", "income_tax", "£6,486.00") in cited
 
-    def test_wrong_figure_is_rejected(self):
+    async def test_wrong_figure_is_rejected(self):
         out = _validate("Your net pay is £34,000.00 [r:9f2c1a3b4d5e.net_pay].")
         assert out["validation"].status == "failed"
         assert any(
@@ -297,28 +297,28 @@ class TestValidator:
             for mismatch in out["validation"].mismatches
         )
 
-    def test_unknown_result_id_is_rejected(self):
+    async def test_unknown_result_id_is_rejected(self):
         out = _validate("You get £34,622.40 [r:deadbeef1234.net_pay].")
         assert any(
             "unknown result_id deadbeef1234" in mismatch
             for mismatch in out["validation"].mismatches
         )
 
-    def test_unknown_field_is_rejected(self):
+    async def test_unknown_field_is_rejected(self):
         out = _validate("You get £34,622.40 [r:9f2c1a3b4d5e.nope].")
         assert any(
             "unknown field nope" in mismatch
             for mismatch in out["validation"].mismatches
         )
 
-    def test_uncited_figure_is_rejected(self):
+    async def test_uncited_figure_is_rejected(self):
         out = _validate("Your salary is 45,000 a year.")
         assert any(
             "uncited figure: '45,000'" in mismatch
             for mismatch in out["validation"].mismatches
         )
 
-    def test_recommendation_language_is_rejected(self):
+    async def test_recommendation_language_is_rejected(self):
         out = _validate(
             "You should take the full dividend. "
             "Your net pay is £34,622.40 [r:9f2c1a3b4d5e.net_pay]."
@@ -329,7 +329,7 @@ class TestValidator:
             for mismatch in out["validation"].mismatches
         )
 
-    def test_neutral_comparison_of_options_passes(self):
+    async def test_neutral_comparison_of_options_passes(self):
         out = _validate(
             "Option A leaves £34,622.40 [r:9f2c1a3b4d5e.net_pay]. "
             "Option B leaves £6,486.00 [r:9f2c1a3b4d5e.income_tax]."
@@ -337,7 +337,7 @@ class TestValidator:
         assert out["validation"].status == "passed"
         assert out["validation"].mismatches == []
 
-    def test_duplicate_citations_are_collapsed(self):
+    async def test_duplicate_citations_are_collapsed(self):
         out = _validate(
             "Your net pay is £34,622.40 [r:9f2c1a3b4d5e.net_pay]. "
             "Again, £34,622.40 [r:9f2c1a3b4d5e.net_pay]."
@@ -345,11 +345,11 @@ class TestValidator:
         assert out["validation"].status == "passed"
         assert len(out["report"].citations) == 1
 
-    def test_rounding_edge_matches_display(self):
+    async def test_rounding_edge_matches_display(self):
         out = _validate("Your net pay is £34,622.40 [r:9f2c1a3b4d5e.net_pay].")
         assert out["validation"].status == "passed"
 
-    def test_rate_figures_pass(self):
+    async def test_rate_figures_pass(self):
         result = CalcResult(
             result_id="9f2c1a3b4d5e",
             calculator="gb.lookup_rule",
@@ -374,7 +374,7 @@ class TestValidator:
         assert out["validation"].status == "passed"
         assert out["report"].citations[0].shown == "20.00%"
 
-    def test_research_url_passes(self):
+    async def test_research_url_passes(self):
         research = ResearchResult(
             research_id="abc123abc123",
             kind="search",
@@ -395,7 +395,7 @@ class TestValidator:
         out = validate(state)
         assert out["validation"].status == "passed"
 
-    def test_unknown_url_is_rejected(self):
+    async def test_unknown_url_is_rejected(self):
         state = _state(
             results=[],
             research=[],
@@ -410,7 +410,7 @@ class TestValidator:
             for mismatch in out["validation"].mismatches
         )
 
-    def test_naira_figures_pass(self):
+    async def test_naira_figures_pass(self):
         result = CalcResult(
             result_id="9f2c1a3b4d5e",
             calculator="ng.take_home",
@@ -430,7 +430,7 @@ class TestValidator:
         assert out["validation"].status == "passed"
         assert out["report"].citations[0].shown == "₦22,200,000.00"
 
-    def test_wrong_naira_figure_is_rejected(self):
+    async def test_wrong_naira_figure_is_rejected(self):
         result = CalcResult(
             result_id="9f2c1a3b4d5e",
             calculator="ng.take_home",
@@ -453,14 +453,14 @@ class TestValidator:
             for mismatch in out["validation"].mismatches
         )
 
-    def test_attempts_counter_increments(self):
+    async def test_attempts_counter_increments(self):
         out = _validate(
             "wrong [r:9f2c1a3b4d5e.nope].",
             validation=Validation(attempts=2, mismatches=["earlier"]),
         )
         assert out["validation"].attempts == 3
 
-    def test_validation_log_appends_to_existing_attempts(self):
+    async def test_validation_log_appends_to_existing_attempts(self):
         state = _state(
             results=[RESULT],
             rule_pack=REF,
@@ -477,30 +477,30 @@ class SpyModel:
     def __init__(self) -> None:
         self.payload: str | None = None
 
-    def extract_profile(self, messages):
+    async def extract_profile(self, messages):
         raise NotImplementedError
 
-    def decide(self, system: str, payload: str) -> AgentDecision:
+    async def decide(self, system: str, payload: str) -> AgentDecision:
         self.payload = payload
         return AgentDecision(action="respond")
 
-    def narrate(self, system: str, payload: str) -> str:
+    async def narrate(self, system: str, payload: str) -> str:
         self.payload = payload
         return "narrated"
 
 
 class TestNarrate:
-    def test_payload_carries_figures_and_markers(self, monkeypatch):
+    async def test_payload_carries_figures_and_markers(self, monkeypatch):
         spy = SpyModel()
         monkeypatch.setattr(narrate_module, "model", lambda: spy)
         state = _state(results=[RESULT], rule_pack=REF, validation=Validation())
-        out = narrate_module.narrate(state)
+        out = await narrate_module.narrate(state)
         assert out["report"].text == "narrated"
         assert spy.payload is not None
         assert "[r:9f2c1a3b4d5e.net_pay]" in spy.payload
         assert "£34,622.40" in spy.payload
 
-    def test_payload_carries_the_latest_question(self, monkeypatch):
+    async def test_payload_carries_the_latest_question(self, monkeypatch):
         spy = SpyModel()
         monkeypatch.setattr(narrate_module, "model", lambda: spy)
         state = _state(
@@ -509,11 +509,11 @@ class TestNarrate:
             rule_pack=REF,
             validation=Validation(),
         )
-        narrate_module.narrate(state)
+        await narrate_module.narrate(state)
         assert spy.payload is not None
         assert "How can I minimize my taxes?" in spy.payload
 
-    def test_payload_carries_the_conversation(self, monkeypatch):
+    async def test_payload_carries_the_conversation(self, monkeypatch):
         spy = SpyModel()
         monkeypatch.setattr(narrate_module, "model", lambda: spy)
         state = _state(
@@ -525,12 +525,12 @@ class TestNarrate:
             rule_pack=REF,
             validation=Validation(),
         )
-        narrate_module.narrate(state)
+        await narrate_module.narrate(state)
         assert spy.payload is not None
         assert "I earn 45,000 a year in England" in spy.payload
         assert "How can I minimize my taxes?" in spy.payload
 
-    def test_rejection_feedback_is_appended(self, monkeypatch):
+    async def test_rejection_feedback_is_appended(self, monkeypatch):
         spy = SpyModel()
         monkeypatch.setattr(narrate_module, "model", lambda: spy)
         state = _state(
@@ -538,19 +538,19 @@ class TestNarrate:
             rule_pack=REF,
             validation=Validation(mismatches=["£1.00 should be £2.00"]),
         )
-        narrate_module.narrate(state)
+        await narrate_module.narrate(state)
         assert spy.payload is not None
         assert "rejected for" in spy.payload
         assert "£1.00 should be £2.00" in spy.payload
 
-    def test_report_never_contains_an_em_dash(self, monkeypatch):
+    async def test_report_never_contains_an_em_dash(self, monkeypatch):
         class DashModel(SpyModel):
-            def narrate(self, system: str, payload: str) -> str:
+            async def narrate(self, system: str, payload: str) -> str:
                 return "Net pay is \u00a334,622.40 [r:9f2c1a3b4d5e.net_pay] \u2014 after tax."
 
         monkeypatch.setattr(narrate_module, "model", lambda: DashModel())
         state = _state(results=[RESULT], rule_pack=REF, validation=Validation())
-        out = narrate_module.narrate(state)
+        out = await narrate_module.narrate(state)
         assert "\u2014" not in out["report"].text
         assert out["report"].text == (
             "Net pay is \u00a334,622.40 [r:9f2c1a3b4d5e.net_pay], after tax."

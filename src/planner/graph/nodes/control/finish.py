@@ -7,10 +7,10 @@ from planner.audit.sink import AuditError, sink
 from planner.graph.state import PlanState
 
 
-def deliver(state: PlanState, config: RunnableConfig) -> dict[str, Any]:
+async def deliver(state: PlanState, config: RunnableConfig) -> dict[str, Any]:
     thread_id = str((config.get("configurable") or {})["thread_id"])
     try:
-        sink().record_batch(
+        await sink().record_batch(
             audit_events(state, thread_id),
             idempotency_key=f"{thread_id}:delivery",
         )

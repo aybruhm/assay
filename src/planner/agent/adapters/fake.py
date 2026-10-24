@@ -24,7 +24,7 @@ class ScriptedModel(ModelPort):
         self._decisions = list(decisions or [])
         self._narrations = list(narrations or [])
 
-    def extract_profile(self, messages: list[AnyMessage]) -> ProfileExtraction:
+    async def extract_profile(self, messages: list[AnyMessage]) -> ProfileExtraction:
         if self._extractions:
             return self._extractions.pop(0)
         return ProfileExtraction(
@@ -44,7 +44,7 @@ class ScriptedModel(ModelPort):
             rental_income=None,
         )
 
-    def decide(self, system: str, payload: str) -> AgentDecision:
+    async def decide(self, system: str, payload: str) -> AgentDecision:
         if self._decisions:
             return self._decisions.pop(0)
         try:
@@ -73,7 +73,7 @@ class ScriptedModel(ModelPort):
             message="What is your gross annual income?",
         )
 
-    def narrate(self, system: str, payload: str) -> str:
+    async def narrate(self, system: str, payload: str) -> str:
         if self._narrations:
             return self._narrations.pop(0)
         try:

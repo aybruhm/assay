@@ -118,7 +118,7 @@ def _conversation(state: PlanState) -> list[dict[str, str]]:
     ]
 
 
-def agent(state: PlanState) -> dict[str, Any]:
+async def agent(state: PlanState) -> dict[str, Any]:
     if state.agent_steps >= MAX_AGENT_STEPS:
         return {"failure": "agent step limit reached"}
 
@@ -141,7 +141,7 @@ def agent(state: PlanState) -> dict[str, Any]:
         },
         ensure_ascii=False,
     )
-    decision = model().decide(SYSTEM, payload)
+    decision = await model().decide(SYSTEM, payload)
     if decision.message:
         decision = decision.model_copy(
             update={"message": without_em_dashes(decision.message)}

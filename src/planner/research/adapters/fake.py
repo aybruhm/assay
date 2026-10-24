@@ -15,13 +15,13 @@ class FakeResearch:
         self.queries: list[tuple[str, int]] = []
         self.fetches: list[str] = []
 
-    def search(self, query: str, max_results: int) -> list[SearchHit]:
+    async def search(self, query: str, max_results: int) -> list[SearchHit]:
         self.queries.append((query, max_results))
         if self._fail:
             raise ResearchError("injected search failure")
         return self._hits[:max_results]
 
-    def fetch(self, url: str) -> FetchedPage:
+    async def fetch(self, url: str) -> FetchedPage:
         self.fetches.append(url)
         if self._fail:
             raise ResearchError("injected fetch failure")

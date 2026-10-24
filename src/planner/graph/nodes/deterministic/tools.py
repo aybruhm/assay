@@ -35,7 +35,7 @@ def _defaults(state: PlanState) -> dict[str, str | int | bool | None]:
     return defaults
 
 
-def execute_pending(state: PlanState) -> dict[str, Any]:
+async def execute_pending(state: PlanState) -> dict[str, Any]:
     if state.jurisdiction is None or state.rule_pack is None:
         return {"failure": "rule pack is not ready"}
     try:
@@ -55,7 +55,7 @@ def execute_pending(state: PlanState) -> dict[str, Any]:
 
     for call in state.pending_calls:
         try:
-            outcome = execute_tool(call, context)
+            outcome = await execute_tool(call, context)
         except (ToolError, Unsupported) as exc:
             records.append(
                 ToolRecord(name=call.name, arguments=call.arguments, error=exc.reason)

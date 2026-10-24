@@ -45,7 +45,7 @@ and say what the order is.
 - Never use em dashes. Use a comma, a colon, parentheses or a new sentence."""
 
 
-def narrate(state: PlanState) -> dict[str, Any]:
+async def narrate(state: PlanState) -> dict[str, Any]:
     assert state.rule_pack is not None
     try:
         currency = load_ref(state.rule_pack).currency
@@ -90,5 +90,5 @@ def narrate(state: PlanState) -> dict[str, Any]:
         payload += "\n\nYour previous draft was rejected for:\n" + "\n".join(
             state.validation.mismatches
         )
-    text = without_em_dashes(model().narrate(SYSTEM, payload))
+    text = without_em_dashes(await model().narrate(SYSTEM, payload))
     return {"report": Report(text=text)}
