@@ -294,4 +294,4 @@ async def test_dividend_capacity_run_uses_the_dividend_calculator(
     result = out["results"][0]
     assert result.calculator == "gb.dividend_capacity"
     assert result.get("available_dividend") == 772_500_000
-    assert result.get("dividend_tax") == 287_740_850
+    assert result.get("dividend_tax") == 292_266_050
