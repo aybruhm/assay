@@ -216,6 +216,7 @@ __marimo__/
 
 # Internal documentation (kept out of version control)
 docs/
+AGENTS.md
 
 # Streamlit
 .streamlit/secrets.toml
