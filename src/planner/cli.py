@@ -2,11 +2,14 @@ import argparse
 import asyncio
 import os
 import re
+import sys
 from collections.abc import Awaitable
 from datetime import date
 from typing import Any, cast
 
 from langchain_core.messages import HumanMessage
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
 from planner.graph.runtime import compiled, config
@@ -47,7 +50,13 @@ def _db_url() -> str:
     return url
 
 
-async def run(thread_id: str, message: str, planning_date: date) -> dict[str, Any]:
+async def run(
+    thread_id: str,
+    message: str,
+    planning_date: date,
+    *,
+    stream: bool = False,
+) -> dict[str, Any]:
     async with compiled(_db_url()) as graph:
         snapshot = await graph.aget_state(config(thread_id))
         existing = snapshot.values.get("profile")
@@ -56,20 +65,28 @@ async def run(thread_id: str, message: str, planning_date: date) -> dict[str, An
             if isinstance(existing, Profile)
             else Profile(planning_date=planning_date)
         )
+        graph_input = PlanState(
+            messages=[HumanMessage(content=message)],
+            profile=profile,
+        )
+        if stream:
+            return await _stream(graph, graph_input, config(thread_id))
         return cast(
             dict[str, Any],
             await graph.ainvoke(
-                PlanState(
-                    messages=[HumanMessage(content=message)],
-                    profile=profile,
-                ),
+                graph_input,
                 config(thread_id),
                 durability="sync",
             ),
         )
 
 
-async def resume(thread_id: str, answer: str | None) -> dict[str, Any]:
+async def resume(
+    thread_id: str,
+    answer: str | None,
+    *,
+    stream: bool = False,
+) -> dict[str, Any]:
     """
     Continue a run that is paused or crashed.
 
@@ -77,15 +94,19 @@ async def resume(thread_id: str, answer: str | None) -> dict[str, Any]:
         thread_id: The thread to continue.
         answer: The reply to a pending interrupt, or None to continue a
             crashed run.
+        stream: Print node progress to stderr while the run advances.
 
     Returns:
         The run state after the graph advances.
     """
     async with compiled(_db_url()) as graph:
+        graph_input: Any = None if answer is None else Command(resume=answer)
+        if stream:
+            return await _stream(graph, graph_input, config(thread_id))
         return cast(
             dict[str, Any],
             await graph.ainvoke(
-                None if answer is None else Command(resume=answer),
+                graph_input,
                 config(thread_id),
                 durability="sync",
             ),
@@ -114,26 +135,53 @@ def _missing_fields(out: dict[str, Any]) -> list[str]:
     return [str(field) for field in value.get("fields", [])]
 
 
-def _ask(fields: list[str]) -> str:
+async def _stream(
+    graph: CompiledStateGraph[PlanState, None, PlanState, PlanState],
+    graph_input: Any,
+    thread_config: RunnableConfig,
+) -> dict[str, Any]:
+    async for chunk in graph.astream(
+        graph_input,
+        thread_config,
+        stream_mode="updates",
+        durability="sync",
+    ):
+        for node in chunk:
+            if node != "__interrupt__":
+                print(f"[{node}]", file=sys.stderr)
+    snapshot = await graph.aget_state(thread_config)
+    out: dict[str, Any] = dict(snapshot.values)
+    interrupts = [item for task in snapshot.tasks for item in task.interrupts]
+    if interrupts:
+        out["__interrupt__"] = interrupts
+    return out
+
+
+async def _ask(fields: list[str]) -> str:
     answers: list[str] = []
     for field in fields:
         question = QUESTIONS.get(field, field.replace("_", " "))
         try:
-            value = input(f"{question}: ").strip()
+            value = (await asyncio.to_thread(input, f"{question}: ")).strip()
         except EOFError:
             return ""
         answers.append(f"{field}: {value}")
     return "\n".join(answers)
 
 
-def _ask_free_text(message: str) -> str:
+async def _ask_free_text(message: str) -> str:
     try:
-        return input(f"{message} ").strip()
+        return (await asyncio.to_thread(input, f"{message} ")).strip()
     except EOFError:
         return ""
 
 
-async def _converse(thread_id: str, first: Awaitable[dict[str, Any]]) -> dict[str, Any]:
+async def _converse(
+    thread_id: str,
+    first: Awaitable[dict[str, Any]],
+    *,
+    stream: bool = False,
+) -> dict[str, Any]:
     out = await first
     asked = 0
     while True:
@@ -148,12 +196,12 @@ async def _converse(thread_id: str, first: Awaitable[dict[str, Any]]) -> dict[st
         if fields:
             if message:
                 print(message)
-            answer = _ask(fields)
+            answer = await _ask(fields)
         else:
-            answer = _ask_free_text(message)
+            answer = await _ask_free_text(message)
         if not answer:
             break
-        out = await resume(thread_id, answer)
+        out = await resume(thread_id, answer, stream=stream)
     return out
 
 
@@ -197,10 +245,12 @@ def main(argv: list[str] | None = None) -> None:
     run_parser.add_argument("thread_id")
     run_parser.add_argument("message")
     run_parser.add_argument("--date", required=True, type=date.fromisoformat)
+    run_parser.add_argument("--stream", action="store_true")
 
     resume_parser = sub.add_parser("resume")
     resume_parser.add_argument("thread_id")
     resume_parser.add_argument("answer", nargs="?")
+    resume_parser.add_argument("--stream", action="store_true")
 
     history_parser = sub.add_parser("history")
     history_parser.add_argument("thread_id")
@@ -209,11 +259,24 @@ def main(argv: list[str] | None = None) -> None:
     configure_tracing()
     if args.command == "run":
         out = asyncio.run(
-            _converse(args.thread_id, run(args.thread_id, args.message, args.date))
+            _converse(
+                args.thread_id,
+                run(
+                    args.thread_id,
+                    args.message,
+                    args.date,
+                    stream=args.stream,
+                ),
+                stream=args.stream,
+            )
         )
     elif args.command == "resume":
         out = asyncio.run(
-            _converse(args.thread_id, resume(args.thread_id, args.answer))
+            _converse(
+                args.thread_id,
+                resume(args.thread_id, args.answer, stream=args.stream),
+                stream=args.stream,
+            )
         )
     else:
         for checkpoint_id, next_nodes in asyncio.run(history(args.thread_id)):
